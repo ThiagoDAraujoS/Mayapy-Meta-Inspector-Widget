@@ -1,25 +1,34 @@
-_G=False;_F='left';_E=None;_D='both';_C='right';_B='..';_A=True
+_G=False;_F='left';_E=None;_D='both';_C='right';_B='..';_A=True;J=set;A=staticmethod;E=type
 from typing import Annotated,_AnnotatedAlias
 from maya import cmds
 from enum import Enum
 class UI_Color(Enum):' This Enum describe some UI colors ';RED=0.5,0.1,0.1;GREEN=0.1,0.5,0.1;BLUE=0.1,0.3,0.5;YELLOW=0.6,0.57,0.2;DARK_GRAY=0.2,0.2,0.2;PURPLE=0.35,0.2,0.6;GRAY=0.3,0.3,0.3
-class _MetaWidget(type):
-	@staticmethod
-	def is_dunder(name):A='__';return name.startswith(A)and name.endswith(A)
-	@staticmethod
-	def generate_new_method(class_instance,T,members):
-		def __new__(cls,label='Name',group='',*E,**F):
+class B(E):
+	@A
+	def _is_dunder(name):A='__';return name.startswith(A)and name.endswith(A)
+	@A
+	def _generate_new_method(class_instance,T,fields):
+		C=fields
+		def __new__(cls,label='Name',group='',*F,**G):
 			A=super(class_instance,cls).__new__(cls)
-			if type(A)is _AnnotatedAlias:A=A.__metadata__[0]
-			C={A:B for(A,B)in members.items()if not _MetaWidget.is_dunder(A)}
-			for (D,B) in zip(E,C):C[B]=D
-			for (B,D) in F.items():
+			if E(A)is _AnnotatedAlias:A=A.__metadata__[0]
+			for (D,B) in zip(F,C):C[B]=D
+			for (B,D) in G.items():
 				if B in C:C[B]=D
-				else:print('error')
-			for (B,G) in C.items():setattr(A,B,G)
+				else:print(B,'argument non existent error')
+			for (B,H) in C.items():setattr(A,B,H)
 			A.__label__=label;A.__group__=group;A.__type__=T;return Annotated[(T,A)]
 		return __new__
-	def __new__(C,name,base,members,T=_E):B=members;A=super().__new__(C,name,base,B);A.__new__=_MetaWidget.generate_new_method(A,T,B);return A
+	def __new__(K,name,bases,members,T=None):
+		I=members;H=bases;C=super().__new__(K,name,H,I);D=J()
+		for E in H:D=D.union(J(E.__mro__))
+		F=dict()
+		for E in D:
+			for (A,G) in E.__dict__.items():
+				if not B._is_dunder(A):F[A]=G
+		for (A,G) in I.items():
+			if not B._is_dunder(A):F[A]=G
+		C.__new__=B._generate_new_method(C,T,F);return C
 class Widget(metaclass=_MetaWidget):
 	__label__='';__group__='';__type__=_E
 	def __widget__(A,bind,default):print('Abstract method invoked directly')

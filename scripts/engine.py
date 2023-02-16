@@ -4,19 +4,16 @@ from typing import Annotated, _AnnotatedAlias
 
 class _MetaWidget(type):
     @staticmethod
-    def is_dunder(name):
+    def _is_dunder(name):
         return name.startswith("__") and name.endswith("__")
 
     @staticmethod
-    def generate_new_method(class_instance, T, members):
+    def _generate_new_method(class_instance, T, fields):
         def __new__(cls, label = "Name", group = "", *args, **kwargs):
             # Create instance
             instance = super(class_instance, cls).__new__(cls)
             if type(instance) is _AnnotatedAlias:
                 instance = instance.__metadata__[0]
-
-            # Filter out dunder members
-            fields = {key: value for key, value in members.items() if not _MetaWidget.is_dunder(key)}
 
             # Update default members
             for arg, key in zip(args, fields):
@@ -27,7 +24,7 @@ class _MetaWidget(type):
                 if key in fields:
                     fields[key] = arg
                 else:
-                    print("error")
+                    print(key, "argument non existent error")
 
             # Store args in obj instance
             for key, value in fields.items():
@@ -42,12 +39,25 @@ class _MetaWidget(type):
             return Annotated[T, instance]
         return __new__
 
-    def __new__(mcs, name, base, members, T = None):
+    def __new__(mcs, name, bases, members, T = None):
         # Define the new class
-        class_instance = super().__new__(mcs, name, base, members)
+        class_instance = super().__new__(mcs, name, bases, members)
 
-        # Override its original __new__ with the new __new__ method
-        class_instance.__new__ = _MetaWidget.generate_new_method(class_instance, T, members)
+        complete_hierarchy = set()
+        for base in bases:
+            complete_hierarchy = complete_hierarchy.union(set(base.__mro__))
+
+        fields = dict()
+        for base in complete_hierarchy:
+            for field_name, value in base.__dict__.items():
+                if not _MetaWidget._is_dunder(field_name):
+                    fields[field_name] = value
+
+        for field_name, value in members.items():
+            if not _MetaWidget._is_dunder(field_name):
+                fields[field_name] = value
+
+        class_instance.__new__ = _MetaWidget._generate_new_method(class_instance, T, fields)
 
         return class_instance
 
