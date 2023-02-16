@@ -2,6 +2,7 @@
 from typing import Annotated, _AnnotatedAlias
 from maya import cmds
 from enum import Enum
+from collections import ChainMap
 
 
 class UI_Color(Enum):
@@ -37,7 +38,7 @@ class _MetaWidget(type):
                 if key in fields:
                     fields[key] = arg
                 else:
-                    print(key, "argument non existent error")
+                    raise Exception(f"[ERROR] {key} non existent argument")
 
             # Store args in obj instance
             for key, value in fields.items():
@@ -105,12 +106,11 @@ class _Fragment:
         """ Extract the reflection from the target's instance and populate a dictionary of fragments """
         fragment_groups = {}
         ungrouped_fragments = []
-        defaults_values = type(target).__dict__  # Get all the variable names and default values of the target object reference
+        defaults_values = ChainMap(*(c.__dict__ for c in type(target).__mro__))
 
-        for field_name, field_metadata in target.__annotations__.items():  # For each metadata blob acquired from the target
+        for field_name, field_metadata in ChainMap(*(c.__annotations__ for c in type(target).__mro__ if '__annotations__' in c.__dict__)).items():  # For each metadata blob acquired from the target
             if not isinstance(field_metadata, _AnnotatedAlias):
                 continue
-
             instance = field_metadata.__metadata__[0]
             if not issubclass(type(instance), Widget):
                 continue
@@ -123,7 +123,7 @@ class _Fragment:
         return fragment_groups
 
 
-def create_tuning_panel_widget(ref, label_size, *args, **kwargs) -> str:
+def create_inspector_panel_widget(ref, label_size, *args, **kwargs) -> str:
     """ Command that creates a tuning panel widget """
     root_element = cmds.columnLayout(*args, **kwargs)
 
@@ -250,24 +250,25 @@ class FloatSlider(AbstractSlider, T=float):
 
 # --------------------------EXAMPLE--------------------------------
 
+class Fruit:
+    parent_j: Toggle("Parent Field", "Fruit") = False
+    parent_h: TextField("Text", "Fruit") = "Bla"
 
-class Banana:
-    a: IntSlider(label="Name", group="Banana", min=0, max=100) = 5
-    d: Toggle() = True
 
-class Apple:
-    a: FloatSlider(label="Apple Slider", group="Apple", min=0, max=100) = 5
-    d: Toggle(label="Is Pineapple", group="Apple", true_label="PINEAPPLE", false_label="APPLE", true_color=UI_Color.YELLOW, false_color=UI_Color.RED) = True
+class Banana(Fruit):
+    child_a: IntSlider(label="Name", group="Fruit", min=0, max=100) = 5
+    child_b: TextField("name", "Banana") = "banana banana"
+    child_c: Toggle(group="Banana") = False
+
+
+class Apple(Fruit):
+    child_d: FloatSlider(label="Apple Slider", group="Apple", min=0, max=100) = 5
+    child_f: Toggle(label="Is Pineapple", group="Apple", true_label="PINEAPPLE", false_label="APPLE", true_color=UI_Color.YELLOW, false_color=UI_Color.RED) = True
 
 
 class Window:
-    """ This class builds a window that controls the arm rigger tool"""
-    NAME = "Auto_Rigger_Window"
-    UI_BGC = 0.2, 0.2, 0.2
-    UI_LIGHT_GRAY = 0.2, 0.2, 0.2
-    UI_RED = 0.5, 0.1, 0.1
-    UI_GREEN = 0.1, 0.5, 0.1
-    UI_BLUE = 0.1, 0.3, 0.5
+    """ This class builds a window """
+    NAME = "Test_Window"
     SIZE = 350
 
     def __init__(self):
@@ -287,13 +288,10 @@ class Window:
 
         # Build the first Tab "Bucket tool"
         b = Banana()
-        cmds.scrollLayout(verticalScrollBarThickness=16, childResizable=True)
-        create_tuning_panel_widget(ref=b, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
-        cmds.setParent("..")
+        create_inspector_panel_widget(ref=b, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
+
         a = Apple()
-        cmds.scrollLayout(verticalScrollBarThickness=16, childResizable=True)
-        create_tuning_panel_widget(ref=a, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
-        cmds.setParent("..")
+        create_inspector_panel_widget(ref=a, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
 
         # Show the window
         cmds.showWindow(window_element)

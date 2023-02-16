@@ -1,14 +1,15 @@
 # noinspection PyProtectedMember
 from typing import Annotated, _AnnotatedAlias
+from collections import ChainMap
 
 
 class _MetaWidget(type):
     @staticmethod
-    def _is_dunder(name):
+    def is_dunder(name):
         return name.startswith("__") and name.endswith("__")
 
     @staticmethod
-    def _generate_new_method(class_instance, T, fields):
+    def generate_new_method(class_instance, T, fields):
         def __new__(cls, label = "Name", group = "", *args, **kwargs):
             # Create instance
             instance = super(class_instance, cls).__new__(cls)
@@ -24,7 +25,7 @@ class _MetaWidget(type):
                 if key in fields:
                     fields[key] = arg
                 else:
-                    print(key, "argument non existent error")
+                    raise Exception(f"[ERROR] {key} non existent argument")
 
             # Store args in obj instance
             for key, value in fields.items():
@@ -50,14 +51,14 @@ class _MetaWidget(type):
         fields = dict()
         for base in complete_hierarchy:
             for field_name, value in base.__dict__.items():
-                if not _MetaWidget._is_dunder(field_name):
+                if not _MetaWidget.is_dunder(field_name):
                     fields[field_name] = value
 
         for field_name, value in members.items():
-            if not _MetaWidget._is_dunder(field_name):
+            if not _MetaWidget.is_dunder(field_name):
                 fields[field_name] = value
 
-        class_instance.__new__ = _MetaWidget._generate_new_method(class_instance, T, fields)
+        class_instance.__new__ = _MetaWidget.generate_new_method(class_instance, T, fields)
 
         return class_instance
 
@@ -92,12 +93,11 @@ class Fragment:
         """ Extract the reflection from the target's instance and populate a dictionary of fragments """
         fragment_groups = {}
         ungrouped_fragments = []
-        defaults_values = type(target).__dict__  # Get all the variable names and default values of the target object reference
+        defaults_values = ChainMap(*(c.__dict__ for c in type(target).__mro__))
 
-        for field_name, field_metadata in target.__annotations__.items():  # For each metadata blob acquired from the target
+        for field_name, field_metadata in ChainMap(*(c.__annotations__ for c in type(target).__mro__ if '__annotations__' in c.__dict__)).items():  # For each metadata blob acquired from the target
             if not isinstance(field_metadata, _AnnotatedAlias):
                 continue
-
             instance = field_metadata.__metadata__[0]
             if not issubclass(type(instance), Widget):
                 continue

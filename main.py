@@ -27,3 +27,5 @@ def create_inspector_panel_widget(ref, label_size, *args, **kwargs) -> str:
 
     cmds.setParent("..")
     return root_element
+
+
