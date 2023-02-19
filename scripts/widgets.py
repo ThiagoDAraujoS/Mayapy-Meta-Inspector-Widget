@@ -1,6 +1,6 @@
 from maya import cmds
-from scripts.color import *
-from scripts.engine import *
+from color import *
+from engine import *
 
 
 class Toggle(Widget, T=bool):
