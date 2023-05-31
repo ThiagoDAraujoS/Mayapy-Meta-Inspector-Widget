@@ -1,6 +1,6 @@
 from maya import cmds
 from color import *
-from engine import *
+from engine import Widget, LabelStyle
 from maya.api.OpenMaya import MVector
 from functools import partial
 
