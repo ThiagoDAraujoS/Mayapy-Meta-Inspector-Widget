@@ -252,9 +252,15 @@ class FloatSlider(AbstractSlider, T=float):
 
 # --------------------------EXAMPLE--------------------------------
 
+from inspector import *
+from color import *
+from widgets import *
+
+
 class Fruit:
     parent_j: Toggle("Parent Field", "Fruit") = False
     parent_h: TextField("Text", "Fruit") = "Bla"
+    parent_k: StringBox(label="") = set()
 
 
 class Banana(Fruit):
