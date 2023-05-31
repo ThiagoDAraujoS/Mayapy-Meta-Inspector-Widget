@@ -4,82 +4,70 @@ from collections import ChainMap
 
 
 class _MetaWidget(type):
-    """ Hidden widget's class factory """
-
     @staticmethod
     def is_dunder(name):
-        """ Verify if this field name is a double underscored """
         return name.startswith("__") and name.endswith("__")
 
     @staticmethod
-    def generate_new_method(class_instance, T, fields):
-        """ Generate a new __new__ method for this class """
-
-        # Define the new __new__ method
-        def __new__(cls, label = "Name", group = "", *args, **kwargs):
-
-            # Create a widget meta-blob instance
+    def generate_new_method(class_instance, T, label_style, fields):
+        def instantiate_class(cls, label, group = "", *args, **kwargs):
+            # Create instance
             instance = super(class_instance, cls).__new__(cls)
             if type(instance) is _AnnotatedAlias:
                 instance = instance.__metadata__[0]
 
-            # Edit the fields dictionary by replacing its values by the __init__ args and kwargs
-            # Update its default members in order using the *args list
+            # Update default members
             for arg, key in zip(args, fields):
                 fields[key] = arg
 
-            # Update its default members by using the **kwargs keys
+            # Update kwargs
             for key, arg in kwargs.items():
-                # if the key exists update it
                 if key in fields:
                     fields[key] = arg
-
-                # if no throw an error
                 else:
                     raise Exception(f"[ERROR] {key} non existent argument")
 
-            # move all the field's values onto the instance obj
+            # Store args in obj instance
             for key, value in fields.items():
                 setattr(instance, key, value)
 
             # add 'label' and 'group' dunder members to the instance
+            instance.__label_style__ = label_style
             instance.__label__ = label
             instance.__group__ = group
-            instance.__type__  = T
+            instance.__type__ = T
 
-            # build an annotation with the args then allocate the meta-blob into its first slot
+            # build an annotation with the args
             return Annotated[T, instance]
 
-        # return the generated __new__ method
-        return __new__
+        def unlabeled_new(cls, group = "", *args, **kwargs):
+            return instantiate_class(cls, None, group=group, *args, **kwargs)
 
-    def __new__(mcs, name, bases, members, T = None):
-        """ Create this new widget class instance """
+        def labeled_new(cls, label = "Name", group = "", *args, **kwargs):
+            return instantiate_class(cls, label, group=group, *args, **kwargs)
 
-        # Create a new empty class child of bases
+        return unlabeled_new if label_style == "None" else labeled_new
+
+    def __new__(mcs, name, bases, members, T = None, label_style = "Left"):
+        # Define the new class
         class_instance = super().__new__(mcs, name, bases, members)
 
-        # collect the class's complete hierarchy
         complete_hierarchy = set()
         for base in bases:
             complete_hierarchy = complete_hierarchy.union(set(base.__mro__))
 
-        # collect this class parent fields as a dictionary
         fields = dict()
         for base in complete_hierarchy:
             for field_name, value in base.__dict__.items():
                 if not _MetaWidget.is_dunder(field_name):
                     fields[field_name] = value
 
-        # Include this class' fields to the fields dictionary
         for field_name, value in members.items():
             if not _MetaWidget.is_dunder(field_name):
                 fields[field_name] = value
 
-        # Generate a new __new__ method using the collected fields, and widget's inspected datatype
-        class_instance.__new__ = _MetaWidget.generate_new_method(class_instance, T, fields)
+        class_instance.__new__ = _MetaWidget.generate_new_method(class_instance, T, label_style, fields)
 
-        # return this new class
         return class_instance
 
 
@@ -87,13 +75,16 @@ class Widget(metaclass=_MetaWidget):
     """ Base widget class """
 
     __label__ = ""
-    """ Widget's label text"""
+    """ Widget's label text """
 
     __group__ = ""
-    """ Widget's group name"""
+    """ Widget's group name """
 
     __type__ = None
     """ Widget's tracked data type """
+
+    __label_style__ = ""
+    """ The widgets label style, currently can be set to None, Top or Left """
 
     def __widget__(self, bind, default):
         """ Cmds Method that build the widget in maya """
@@ -112,7 +103,6 @@ class Fragment:
         """ This value refer to the variable's default value """
 
         self.data: Widget = data
-        """ The metadata blob contained within this fragment's annotation """
 
     def build_widget(self):
         self.data.__widget__(self.bind, self.default)
@@ -124,26 +114,16 @@ class Fragment:
         ungrouped_fragments = []
         defaults_values = ChainMap(*(c.__dict__ for c in type(target).__mro__))
 
-        # For each metadata blob acquired from the target
-        for field_name, field_metadata in ChainMap(*(c.__annotations__ for c in type(target).__mro__ if '__annotations__' in c.__dict__)).items():
-
-            # Check if the field meta stub is an Annotation object
+        for field_name, field_metadata in ChainMap(*(c.__annotations__ for c in type(target).__mro__ if '__annotations__' in c.__dict__)).items():  # For each metadata blob acquired from the target
             if not isinstance(field_metadata, _AnnotatedAlias):
                 continue
-
-            # Check if the Annotation's first meta blob is child of a Widget obj
             instance = field_metadata.__metadata__[0]
             if not issubclass(type(instance), Widget):
                 continue
 
-            # Build the reflection fragment using the metadata blob
-            fragment = Fragment(target, field_name, defaults_values[field_name], instance)
+            fragment = Fragment(target, field_name, defaults_values[field_name], instance)  # Build the reflection fragment using the metadata blob
+            (fragment_groups.setdefault(fragment.data.__group__, []) if fragment.data.__group__ else ungrouped_fragments).append(fragment)  # adds it to the groups or ungroup if it has a group
 
-            # adds it to the groups or ungroup if it has a group
-            (fragment_groups.setdefault(fragment.data.__group__, []) if fragment.data.__group__ else ungrouped_fragments).append(fragment)
-
-        # Append the ungrouped fragments at the end of the fragment group's dictionary
-        if ungrouped_fragments:
+        if ungrouped_fragments:  # Append the ungrouped fragments at the end of the fragment group's dictionary
             fragment_groups[""] = ungrouped_fragments
         return fragment_groups
-
