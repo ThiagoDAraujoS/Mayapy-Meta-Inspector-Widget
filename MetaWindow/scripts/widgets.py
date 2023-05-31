@@ -103,7 +103,7 @@ class FloatSlider(AbstractSlider, T=float):
         cmds.floatField(text_field_element, edit=True, tze=False, value=default)
 
 
-class StringBox(Widget, T=set[str], label_style="Top"):
+class StringBox(Widget, T=set[str], label_style=LabelStyle.Top):
     selection_type = "transform"
 
     def __widget__(self, bind, default):

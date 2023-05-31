@@ -1,6 +1,10 @@
 # noinspection PyProtectedMember
 from typing import Annotated, _AnnotatedAlias
 from collections import ChainMap
+from enum import Enum
+
+
+class LabelStyle(Enum): Left, Top, Off = 0, 1, 2
 
 
 class _MetaWidget(type):
@@ -46,9 +50,9 @@ class _MetaWidget(type):
         def labeled_new(cls, label = "Name", group = "", *args, **kwargs):
             return instantiate_class(cls, label, group=group, *args, **kwargs)
 
-        return unlabeled_new if label_style == "None" else labeled_new
+        return unlabeled_new if label_style == LabelStyle.Off else labeled_new
 
-    def __new__(mcs, name, bases, members, T = None, label_style = "Left"):
+    def __new__(mcs, name, bases, members, T = None, label_style = LabelStyle.Left):
         # Define the new class
         class_instance = super().__new__(mcs, name, bases, members)
 
@@ -83,7 +87,7 @@ class Widget(metaclass=_MetaWidget):
     __type__ = None
     """ Widget's tracked data type """
 
-    __label_style__ = ""
+    __label_style__ = LabelStyle.Left
     """ The widgets label style, currently can be set to None, Top or Left """
 
     def __widget__(self, bind, default):

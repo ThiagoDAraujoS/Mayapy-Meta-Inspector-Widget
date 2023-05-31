@@ -43,18 +43,18 @@ def create_inspector_panel(ref, label_size, *args, **kwargs) -> str:
         # For each metadata fragment, build a widget for it
         for fragment in fragments:
             if fragment.data.__label__:
-                if fragment.data.__label_style__ == "Left":
+                if fragment.data.__label_style__ == LabelStyle.Left:
                     cmds.rowLayout(numberOfColumns=2, adjustableColumn2=2, columnWidth2=(label_size, 70), columnAlign2=["right", "left"], columnAttach2=["both", "right"])
                     cmds.text(label=f"{fragment.data.__label__.title()}:", align="right", font="boldLabelFont")
                     fragment.build_widget()
                     cmds.setParent("..")
 
-                elif fragment.data.__label_style__ == "Top":
+                elif fragment.data.__label_style__ == LabelStyle.Top:
                     cmds.columnLayout(adj=True)
                     cmds.text(label=f"{fragment.data.__label__.title()}:", align="left", font="boldLabelFont")
                     fragment.build_widget()
                     cmds.setParent("..")
-            elif not fragment.data.__label__ or fragment.data.__label_style__ == "None":
+            elif not fragment.data.__label__ or fragment.data.__label_style__ == LabelStyle.Off:
                 fragment.build_widget()
 
         cmds.separator(style="in", h=3)
