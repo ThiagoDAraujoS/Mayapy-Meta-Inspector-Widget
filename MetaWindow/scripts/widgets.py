@@ -1,6 +1,8 @@
 from maya import cmds
 from color import *
 from engine import *
+from maya.api.OpenMaya import MVector
+from functools import partial
 
 
 class Toggle(Widget, T=bool):
@@ -99,3 +101,41 @@ class FloatSlider(AbstractSlider, T=float):
     def __widget__(self, bind, default):
         text_field_element, slider_element = super().abstract_slider(cmds.floatSlider, cmds.floatField, bind, default)
         cmds.floatField(text_field_element, edit=True, tze=False, value=default)
+
+
+class StringBox(Widget, T=set[str], label_style="Top"):
+    selection_type = "transform"
+
+    def __widget__(self, bind, default):
+        def reset_widget(selection):
+            cmds.textScrollList(main_element, edit=True, removeAll=True)
+            cmds.textScrollList(main_element, edit=True, append=selection)
+
+        def on_add_btn_press(*_):
+            selection = cmds.ls(selection=True, type=self.selection_type)
+            if selection:
+                selection = getattr(*bind).union(selection)
+                setattr(*bind, selection)
+                reset_widget(selection)
+
+        def on_del_key_press(*_):
+            selection = cmds.textScrollList(main_element, query=True, selectItem=True)
+            if selection:
+                selection = getattr(*bind).difference(selection)
+                setattr(*bind, selection)
+                reset_widget(selection)
+
+        cmds.columnLayout(adjustableColumn=True)
+        main_element = cmds.textScrollList(allowMultiSelection=True, deleteKeyCommand=on_del_key_press, append=default)
+        cmds.button(label="Add to List", command=on_add_btn_press)
+        cmds.setParent("..")
+
+
+class MVecField(Widget, T=MVector):
+    def __widget__(self, bind, default):
+        def on_field_edited(value, index, *_):
+            getattr(*bind)[index] = value
+
+        cmds.rowLayout(nc=3, ct3=["left", "both", "right"])
+        [cmds.floatField(value=default[i], cc=partial(on_field_edited, index=i), tze=False) for i in range(3)]
+        cmds.setParent("..")
