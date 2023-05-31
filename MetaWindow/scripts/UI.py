@@ -1,8 +1,8 @@
-from scripts.widgets import *
+from widgets import *
 from maya import cmds
 
 
-def create_inspector_panel_widget(ref, label_size, *args, **kwargs) -> str:
+def create_inspector_panel(ref, label_size, *args, **kwargs) -> str:
     """ Command that creates a tuning panel widget """
     root_element = cmds.columnLayout(*args, **kwargs)
 
@@ -27,5 +27,4 @@ def create_inspector_panel_widget(ref, label_size, *args, **kwargs) -> str:
 
     cmds.setParent("..")
     return root_element
-
 

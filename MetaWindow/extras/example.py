@@ -57,6 +57,7 @@ class _MetaWidget(type):
         # Define the new class
         class_instance = super().__new__(mcs, name, bases, members)
 
+        # Collect all the fields this object has through its hierarchy
         complete_hierarchy = set()
         for base in bases:
             complete_hierarchy = complete_hierarchy.union(set(base.__mro__))
@@ -71,6 +72,7 @@ class _MetaWidget(type):
             if not _MetaWidget.is_dunder(field_name):
                 fields[field_name] = value
 
+        # Generate a new __new__ method and pass it to the new class
         class_instance.__new__ = _MetaWidget.generate_new_method(class_instance, T, fields)
 
         return class_instance
@@ -123,7 +125,7 @@ class _Fragment:
         return fragment_groups
 
 
-def create_inspector_panel_widget(ref, label_size, *args, **kwargs) -> str:
+def create_inspector_panel(ref, label_size, *args, **kwargs) -> str:
     """ Command that creates a tuning panel widget """
     root_element = cmds.columnLayout(*args, **kwargs)
 
@@ -288,10 +290,10 @@ class Window:
 
         # Build the first Tab "Bucket tool"
         b = Banana()
-        create_inspector_panel_widget(ref=b, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
+        create_inspector_panel(ref=b, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
 
         a = Apple()
-        create_inspector_panel_widget(ref=a, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
+        create_inspector_panel(ref=a, label_size=75, columnAttach=('both', 1), adj=True, rs=2, adjustableColumn=True)
 
         # Show the window
         cmds.showWindow(window_element)
