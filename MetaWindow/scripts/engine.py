@@ -4,19 +4,36 @@ from collections import ChainMap
 from enum import Enum
 
 
-class LabelStyle(Enum): Left, Top, Off = 0, 1, 2
+class LabelStyle(Enum):
+    Left, Top, Off = 0, 1, 2
 
 
 class _MetaWidget(type):
+    """ this metaclass brings any widget class to completion, by filling up their custom dunder variables, and generating its __new__ method """
     @staticmethod
     def is_dunder(name):
+        """ Check if name is a dunder name """
         return name.startswith("__") and name.endswith("__")
 
     @staticmethod
-    def generate_new_method(class_instance, T, label_style, fields):
-        def instantiate_class(cls, label, group = "", *args, **kwargs):
+    def generate_new_method(widget_class_instance, T, label_style, fields):
+        """ Generate a __new__ method for the class
+        :param widget_class_instance: Original partial widget class instance
+        :param T: The variable type annotated by this widget
+        :param label_style: The label style used for this widget
+        :param fields: a dictionary containing all the fields in the partial widget class
+        :return: adequate __new__ method for this widget class
+        """
+        def generic_new(cls, label, group = "", *args, **kwargs):
+            """ This is the __new__ method used for each widget class, after completing the widget's dunder variables,
+            it generates an Annotated[T, widget_instance] type and return it
+            :param label: widget's label string
+            :param group: widget's group name
+            :param args & kwargs: widget's arguments
+            :return: the Annotate[T, instance] that represents the widget
+            """
             # Create instance
-            instance = super(class_instance, cls).__new__(cls)
+            instance = super(widget_class_instance, cls).__new__(cls)
             if type(instance) is _AnnotatedAlias:
                 instance = instance.__metadata__[0]
 
@@ -35,7 +52,7 @@ class _MetaWidget(type):
             for key, value in fields.items():
                 setattr(instance, key, value)
 
-            # add 'label' and 'group' dunder members to the instance
+            # add 'label', 'type', 'label_style' and 'group' dunder members to the instance
             instance.__label_style__ = label_style
             instance.__label__ = label
             instance.__group__ = group
@@ -45,10 +62,10 @@ class _MetaWidget(type):
             return Annotated[T, instance]
 
         def unlabeled_new(cls, group = "", *args, **kwargs):
-            return instantiate_class(cls, None, group=group, *args, **kwargs)
+            return generic_new(cls, None, group=group, *args, **kwargs)
 
         def labeled_new(cls, label = "Name", group = "", *args, **kwargs):
-            return instantiate_class(cls, label, group=group, *args, **kwargs)
+            return generic_new(cls, label, group=group, *args, **kwargs)
 
         return unlabeled_new if label_style == LabelStyle.Off else labeled_new
 
