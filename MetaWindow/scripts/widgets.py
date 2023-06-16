@@ -3,6 +3,7 @@ from color import *
 from engine import Widget, LabelStyle
 from maya.api.OpenMaya import MVector
 from functools import partial
+import os
 
 
 class Toggle(Widget, T=bool):
@@ -40,7 +41,8 @@ class TextField(Widget, T=str):
     """
     def __widget__(self, bind, default):
         """ Create a text field widget """
-        cmds.textField(text=default, cc=lambda value, *_: setattr(*bind, value))
+        event = lambda value, *_: setattr(*bind, value)
+        cmds.textField(text=default, tcc=event, cc=event, ec=event)
 
 
 class Dropdown(Widget, T=str):
@@ -104,6 +106,10 @@ class FloatSlider(AbstractSlider, T=float):
 
 
 class StringBox(Widget, T=set[str], label_style=LabelStyle.Top):
+    """ label = "" \n
+        group = "" \n
+        selection_type: str = transform \n
+    """
     selection_type = "transform"
 
     def __widget__(self, bind, default):
@@ -132,10 +138,69 @@ class StringBox(Widget, T=set[str], label_style=LabelStyle.Top):
 
 
 class MVecField(Widget, T=MVector):
+    """ label = "" \n
+        group = "" \n
+    """
     def __widget__(self, bind, default):
         def on_field_edited(value, index, *_):
             getattr(*bind)[index] = value
 
         cmds.rowLayout(nc=3, ct3=["left", "both", "right"])
         [cmds.floatField(value=default[i], cc=partial(on_field_edited, index=i), tze=False) for i in range(3)]
+        cmds.setParent("..")
+
+
+class ToggleShelf(Widget, T=dict[str, bool], label_style=LabelStyle.Top):
+    """ label = "" \n
+        group = "" \n
+        divisions:[int] = 2
+    """
+    divisions = 2
+
+    @staticmethod
+    def _reset_widget(layout_element, data):
+        children = cmds.rowColumnLayout(layout_element, query=True, childArray=True)
+        if children:
+            cmds.deleteUI(children)
+        ToggleShelf._build_widget(layout_element, data)
+
+    @staticmethod
+    def _build_widget(layout_element, data):
+        def on_toggle(v, f, d, *_): d[f] = v
+        cmds.setParent(layout_element)
+        offsets = []
+        for index, file in enumerate(data.keys()):
+            cmds.iconTextCheckBox(st="textOnly", l=os.path.basename(file), v=data[file], marginWidth=5,
+                                  cc=partial(on_toggle, f=file, d=data), bgc=UI_Color.DARK_GRAY.value)
+            offsets.append((index+1, "both", 1))
+        cmds.rowColumnLayout(layout_element, edit=True, co=offsets)
+
+    @staticmethod
+    def _add_elements(bind):
+        data = getattr(*bind)
+        file_filter = 'Texture Files (*.jpg *.png *.tga *.tif);;All Files (*.*)'
+        file_paths = cmds.fileDialog2(fileFilter=file_filter, dialogStyle=2, fileMode=4)
+        if file_paths:
+            for file in file_paths:
+                data.setdefault(file, False)
+
+    @staticmethod
+    def _remove_elements(bind):
+        setattr(*bind, {file: False for file, state in getattr(*bind).items() if not state})
+
+    def __widget__(self, bind, default):
+        def on_add_btn_press(*_):
+            ToggleShelf._add_elements(bind)
+            ToggleShelf._reset_widget(layout_element, getattr(*bind))
+
+        def on_remove_btn_press(*_):
+            ToggleShelf._remove_elements(bind)
+            ToggleShelf._reset_widget(layout_element, getattr(*bind))
+
+        layout_element = cmds.rowColumnLayout(numberOfColumns=self.divisions, adj=1)
+        ToggleShelf._build_widget(layout_element, getattr(*bind))
+        cmds.setParent("..")
+        cmds.rowLayout(numberOfColumns=2)
+        cmds.button(label="Add Element", command=on_add_btn_press)
+        cmds.button(label="Delete Selected Elements", command=on_remove_btn_press)
         cmds.setParent("..")
