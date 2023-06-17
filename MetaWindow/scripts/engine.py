@@ -10,49 +10,22 @@ class LabelStyle(Enum):
 
 class _MetaWidget(type):
     """ this metaclass brings any widget class to completion, by filling up their custom dunder variables, and generating its __new__ method """
+
     @staticmethod
     def is_dunder(name):
         """ Check if name is a dunder name """
         return name.startswith("__") and name.endswith("__")
 
     @staticmethod
-    def generate_new_method(widget_class_instance, T, label_style, fields):
-        """ Generate a __new__ method for the class
-        :param widget_class_instance: Original partial widget class instance
-        :param T: The variable type annotated by this widget
-        :param label_style: The label style used for this widget
-        :param fields: a dictionary containing all the fields in the partial widget class
-        :return: adequate __new__ method for this widget class
-        """
-        def generic_new(cls, label, group = "", *args, **kwargs):
-            """ This is the __new__ method used for each widget class, after completing the widget's dunder variables,
-            it generates an Annotated[T, widget_instance] type and return it
-            :param label: widget's label string
-            :param group: widget's group name
-            :param args & kwargs: widget's arguments
-            :return: the Annotate[T, instance] that represents the widget
-            """
-            # Create instance
-            instance = super(widget_class_instance, cls).__new__(cls)
+    def generate_new_method(class_instance, T, label_style):
+        def __new__(cls, label, group="", **kwargs):
+            instance = super(class_instance, cls).__new__(cls)
             if type(instance) is _AnnotatedAlias:
                 instance = instance.__metadata__[0]
 
-            # Update default members
-            for arg, key in zip(args, fields):
-                fields[key] = arg
-
-            # Update kwargs
             for key, arg in kwargs.items():
-                if key in fields:
-                    fields[key] = arg
-                else:
-                    raise Exception(f"[ERROR] {key} non existent argument")
+                setattr(instance, key, arg)
 
-            # Store args in obj instance
-            for key, value in fields.items():
-                setattr(instance, key, value)
-
-            # add 'label', 'type', 'label_style' and 'group' dunder members to the instance
             instance.__label_style__ = label_style
             instance.__label__ = label
             instance.__group__ = group
@@ -61,33 +34,19 @@ class _MetaWidget(type):
             # build an annotation with the args
             return Annotated[T, instance]
 
-        def unlabeled_new(cls, group = "", *args, **kwargs):
-            return generic_new(cls, None, group=group, *args, **kwargs)
+        def unlabeled_new(cls, group="", **kwargs):
+            return __new__(cls, None, group, **kwargs)
 
-        def labeled_new(cls, label = "Name", group = "", *args, **kwargs):
-            return generic_new(cls, label, group=group, *args, **kwargs)
+        def labeled_new(cls, label="Name", group="", **kwargs):
+            return __new__(cls, label, group, **kwargs)
 
         return unlabeled_new if label_style == LabelStyle.Off else labeled_new
 
-    def __new__(mcs, name, bases, members, T = None, label_style = LabelStyle.Left):
+    def __new__(mcs, name, bases, members, T=None, label_style=LabelStyle.Left):
         # Define the new class
         class_instance = super().__new__(mcs, name, bases, members)
 
-        complete_hierarchy = set()
-        for base in bases:
-            complete_hierarchy = complete_hierarchy.union(set(base.__mro__))
-
-        fields = dict()
-        for base in complete_hierarchy:
-            for field_name, value in base.__dict__.items():
-                if not _MetaWidget.is_dunder(field_name):
-                    fields[field_name] = value
-
-        for field_name, value in members.items():
-            if not _MetaWidget.is_dunder(field_name):
-                fields[field_name] = value
-
-        class_instance.__new__ = _MetaWidget.generate_new_method(class_instance, T, label_style, fields)
+        class_instance.__new__ = _MetaWidget.generate_new_method(class_instance, T, label_style)
 
         return class_instance
 
